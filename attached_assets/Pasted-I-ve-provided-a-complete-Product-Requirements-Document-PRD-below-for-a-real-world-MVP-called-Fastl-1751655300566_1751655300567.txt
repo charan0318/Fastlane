@@ -1,0 +1,73 @@
+I’ve provided a complete Product Requirements Document (PRD) below for a real-world MVP called Fastlane CDN — a Web3 content delivery tool built using Filecoin PDP storage and FilCDN edge delivery, running entirely on Calibration testnet.
+
+✅ Your task is to architect, design, and implement this MVP with full functionality, using real PDP deals and FilCDN retrieval, with no mocks.
+
+📌 Goals:
+
+Build the full React frontend (Next.js or CRA + Tailwind)
+
+Build the backend API routes (Node.js + Express or serverless)
+
+Use Estuary to create PDP-enabled storage deals on Calibration testnet
+
+Serve uploaded CIDs via FilCDN: https://gateway.filcdn.io/ipfs/CID
+
+Implement file deal status checking and proof verification
+
+Implement WalletConnect + MetaMask using wagmi + RainbowKit
+
+📁 Backend Details:
+
+POST /api/upload → uploads file to Estuary with pdp=true
+
+GET /api/deal/:cid → checks PDP + deal status from Estuary
+
+GET /api/files/:wallet → lists all uploaded files for a wallet
+
+📁 Frontend Screens:
+
+Home page with CTA and wallet connect
+
+Upload screen to trigger real PDP-enabled deal
+
+Deal tracker to monitor status of uploaded CID (poll Estuary)
+
+Dashboard showing uploaded files and their filCDN links
+
+Live React demo preview using uploaded assets
+
+Wallet connect overlay (global)
+
+Docs/help page (static or MDX)
+
+📦 Libraries:
+
+wagmi, RainbowKit (wallet connect)
+
+axios or fetch
+
+estuary-client (optional, else raw fetch to Estuary API)
+
+IPFS HTTP client (optional for verification)
+
+performance.now for load time analytics
+
+🔐 Estuary:
+
+Use Filecoin Calibration testnet (not Hyperspace)
+
+Token should be loaded securely as ENV variable (ESTUARY_TOKEN)
+
+✅ Acceptance Criteria:
+
+All file uploads create actual PDP storage deals on Calibration
+
+Deal status and proof verification live-update from Estuary
+
+Files are served via FilCDN with instant availability
+
+No mocks — real content, testable in browser
+
+Live React component demonstrates use of assets via CDN
+
+📝 Attached below is the full PRD for implementation. Use it as your blueprint. All features, screen logic, and flows are described. Ask if clarification is needed.

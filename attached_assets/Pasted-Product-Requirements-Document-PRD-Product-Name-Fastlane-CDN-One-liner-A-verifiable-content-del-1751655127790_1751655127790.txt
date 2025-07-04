@@ -1,0 +1,218 @@
+Product Requirements Document (PRD)
+
+Product Name
+
+Fastlane CDN
+
+One-liner
+
+A verifiable content delivery network for Web3, powered by Filecoin PDP storage and FilCDN edge retrieval.
+
+Summary
+
+Fastlane CDN is a decentralized SaaS platform enabling developers to upload and deliver frontend application assets (HTML, JS, CSS, media, 3D models, JSON) using Filecoin Proof of Data Possession (PDP) storage contracts. These assets are distributed via FilCDN, offering instant, secure, and censorship-resistant delivery from a globally distributed cache.
+
+This MVP targets testnet deployments (Filecoin Calibration via Estuary) and real file uploads with live PDP deals, FilCDN integration, and verifiable delivery links.
+
+Target Users
+
+Web3 frontend developers
+
+NFT dApps and metadata APIs
+
+DePIN and 3D gaming platforms
+
+DAO dashboards / ZK frontend loaders
+
+Protocol landing pages / micro-frontends
+
+MVP Goals (Testnet)
+
+Upload a real asset
+
+Trigger PDP storage deal on Calibration testnet
+
+Serve content via FilCDN (via https://gateway.filcdn.io/ipfs/CID)
+
+Track live PDP proof status from Estuary
+
+Integrate React/JS embed snippets for external use
+
+No mock data, real uploads and status tracking
+
+Navigation Map
+
+Home / Landing Page
+
+Upload File + PDP Deal Creator
+
+Deal Tracker & Proof Monitor
+
+Dashboard / File Manager
+
+React Demo Viewer (Live CDN Assets)
+
+Wallet Connect Overlay (Global)
+
+Docs / Help
+
+Functional Screens & Requirements
+
+SCREEN 1: Home / Landing
+
+Hero: "Upload & Deliver Decentralized Assets Instantly"
+
+Feature Highlights: PDP, CDN delivery, React-compatible
+
+CTA: Connect Wallet / Start Uploading
+
+React + Tailwind + wagmi (RainbowKit)
+
+SCREEN 2: Upload + PDP Deal Creator
+
+Upload zone: drag-and-drop + file input
+
+Supported types: .js, .json, .glb, .jpg, .html, .css, .svg (max 50MB)
+
+Toggle: Enable PDP (default ON), filCDN (ON)
+
+Submit: POST to /api/upload
+
+API Call: Estuary /content/add
+
+Headers: Authorization: Bearer 
+
+Params: replication=1, pinned=true, pdp=true
+
+Response: CID, DealID, status, filCDN URL
+
+Libraries: estuary-client or custom fetch call
+
+SCREEN 3: Deal Tracker & PDP Proof Monitor
+
+DealID, CID, status (Active, Sealing, Failed)
+
+Last Verified Timestamp (Estuary PDP API or logs)
+
+FilCDN retrieval status (instant link + open)
+
+Refresh deal status from GET /api/deal/:cid
+
+Polling logic every 60s (via timer)
+
+SCREEN 4: Dashboard / File Manager
+
+List of uploaded files per wallet
+
+Columns: Filename, CID, filCDN URL, PDP Verified?, Uploaded Date
+
+Actions: Copy, Open, View Details
+
+Backend: GET /api/files/:wallet
+
+Combines IndexedDB cache and Estuary deal fetch
+
+SCREEN 5: React Demo Viewer
+
+Embed filCDN URLs into live preview of React app
+
+Render user-uploaded files (logo, images, 3D, etc.) via CDN
+
+Measure load time (performance.now)
+
+Show fallback or warning if CID not resolved
+
+SCREEN 6: Wallet Connect (Global)
+
+RainbowKit or Wagmi Wallet modal
+
+Store address in React context (session scoped)
+
+Gate uploads/dashboard if not connected
+
+Auto-redirect or prompt if disconnected
+
+SCREEN 7: Docs / Help
+
+Explain Calibration testnet, PDP, filCDN flow
+
+Lifecycle Diagram: Upload → PDP → Deal → Proof → CDN → Embed
+
+Code Snippets:
+
+HTML: 
+
+React: const imgUrl = "https://gateway.filcdn.io/ipfs/${cid}"
+
+FAQs: How long is storage? Can I reverify?
+
+Format: Static MDX or Markdown
+
+Backend API Specification
+
+POST /api/upload
+
+Accepts: multipart/form-data
+
+Uploads to Estuary Calibration via PDP=true
+
+Returns: dealId, CID, URL, timestamp
+
+GET /api/deal/:cid
+
+Queries Estuary Calibration endpoint
+
+Returns: dealId, PDP status, lastVerifiedTime
+
+GET /api/files/:wallet
+
+Lists all uploaded CIDs for wallet
+
+Uses Estuary’s /user/uploads or deal list API
+
+External Dependencies
+
+Filecoin Calibration testnet (not Hyperspace)
+
+Estuary (https://docs.estuary.tech/)
+
+FilCDN gateway: https://gateway.filcdn.io
+
+IPFS HTTP client (for fallback pinning)
+
+MetaMask / WalletConnect via wagmi
+
+Deployment Plan
+
+Frontend: Vercel (Next.js or CRA)
+
+Backend: Vercel Serverless or Express API
+
+Use Estuary Token for Calibration network
+
+Full Estuary deal submission on every upload
+
+No DB required in MVP — real-time deal lookups via API
+
+Future Business Layer (Post-MVP)
+
+Paid PDP deals via Calibration or Mainnet
+
+Tiered GB/month + CDN usage
+
+User dashboards with download metrics
+
+Vanity domains for filCDN proxies
+
+Acceptance Criteria
+
+✅ File uploads from browser trigger real Estuary PDP deal on Calibration
+
+✅ PDP proof visible from /deal/:cid endpoint
+
+✅ User can access asset via FilCDN in real time
+
+✅ React app demo loads user asset with performance log
+
+✅ Real files only, no mocks, running end-to-end on Calibration + FilCDN
+
