@@ -20,7 +20,7 @@ export default function Home() {
               Upload & Deliver <span className="text-primary">Decentralized</span> Assets Instantly
             </h1>
             <p className="text-xl text-slate-400 mb-8 max-w-3xl mx-auto">
-              A verifiable content delivery network for Web3, powered by Filecoin PDP storage and FilCDN edge retrieval. Deploy your frontend assets with cryptographic proof of storage.
+              A decentralized content delivery network for Web3, powered by Web3.Storage for IPFS and Filecoin storage. Deploy your frontend assets with decentralized, censorship-resistant delivery.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button

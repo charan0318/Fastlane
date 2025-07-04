@@ -151,7 +151,12 @@ export default function Upload() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <h1 className="text-3xl font-bold mb-4">Upload Your Assets</h1>
-          <p className="text-slate-400">Drag and drop your files to create PDP storage deals on Filecoin Calibration testnet</p>
+          <p className="text-slate-400">Drag and drop your files to store them on IPFS and Filecoin via Web3.Storage</p>
+          <div className="mt-4 p-3 bg-primary/10 border border-primary/20 rounded-lg max-w-2xl mx-auto">
+            <p className="text-sm text-primary">
+              🚀 Demo Mode: This MVP simulates decentralized storage workflows. Full Web3.Storage integration requires API authentication setup.
+            </p>
+          </div>
         </div>
 
         <Card className="bg-surface border-slate-700">

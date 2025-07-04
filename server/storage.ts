@@ -43,6 +43,12 @@ export class MemStorage implements IStorage {
     const file: File = {
       ...insertFile,
       id,
+      dealId: insertFile.dealId ?? null,
+      pdpEnabled: insertFile.pdpEnabled ?? null,
+      filcdnEnabled: insertFile.filcdnEnabled ?? null,
+      pdpVerified: insertFile.pdpVerified ?? null,
+      filcdnUrl: insertFile.filcdnUrl ?? null,
+      status: insertFile.status || 'uploading',
       uploadedAt: new Date(),
       lastVerified: null,
     };
@@ -92,6 +98,8 @@ export class MemStorage implements IStorage {
     const deal: Deal = {
       ...insertDeal,
       id,
+      fileId: insertDeal.fileId ?? null,
+      pdpVerified: insertDeal.pdpVerified ?? null,
       createdAt: new Date(),
       lastVerified: null,
     };

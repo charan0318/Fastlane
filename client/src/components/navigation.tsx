@@ -51,8 +51,8 @@ export function Navigation() {
             </div>
             <div className="flex items-center space-x-4">
               <div className="hidden md:flex items-center space-x-2 text-sm">
-                <span className="text-slate-400">Network:</span>
-                <span className="text-secondary">Calibration</span>
+                <span className="text-slate-400">Storage:</span>
+                <span className="text-secondary">Web3.Storage</span>
               </div>
               <Button
                 onClick={() => setShowWalletModal(true)}

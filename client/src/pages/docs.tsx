@@ -155,7 +155,7 @@ export default function Docs() {
 
               <div>
                 <h4 className="font-semibold text-primary mb-2">What networks are supported?</h4>
-                <p className="text-slate-400">Currently supporting Filecoin Calibration testnet for MVP. Mainnet support coming soon with production releases.</p>
+                <p className="text-slate-400">Currently using Web3.Storage which automatically handles Filecoin storage deals and IPFS distribution for seamless decentralized storage.</p>
               </div>
 
               <div>

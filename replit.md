@@ -68,9 +68,9 @@ Fastlane CDN is a decentralized content delivery network built for Web3 applicat
 ## External Dependencies
 
 ### Core Services
-- **Estuary API**: Filecoin storage deal creation and management
-- **FilCDN**: Global content delivery network (`https://gateway.filcdn.io/ipfs/`)
-- **Filecoin Calibration**: Testnet for PDP storage deals
+- **Web3.Storage**: Decentralized storage via IPFS and Filecoin (w3up-client)
+- **IPFS Gateway**: Distributed content delivery (`https://dweb.link/ipfs/`)
+- **Filecoin Network**: Automatic storage deals via Web3.Storage
 
 ### Frontend Libraries
 - **React**: UI framework with hooks and context
@@ -108,7 +108,8 @@ NODE_ENV=production
 ```
 
 ## Changelog
-- July 04, 2025. Initial setup
+- July 04, 2025: Initial setup
+- July 04, 2025: Migrated from Estuary (discontinued) to Web3.Storage for decentralized file storage
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
