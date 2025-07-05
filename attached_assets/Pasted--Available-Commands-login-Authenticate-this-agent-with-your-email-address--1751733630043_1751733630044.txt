@@ -1,0 +1,50 @@
+  Available Commands
+    login                     Authenticate this agent with your email address to gain access to all capabilities that have been delegated to it.
+    plan get                  Displays plan given account is on
+    account ls                List accounts this agent has been authorized to act on behalf of.
+    up                        Store a file(s) to the service and register an upload.
+    open                      Open CID on https://w3s.link
+    ls                        List uploads in the current space
+    rm                        Remove an upload from the uploads listing.
+    whoami                    Print information about the current agent.
+    space create              Create a new w3 space
+    space provision           Associating space with a billing account
+    space add                 Import a space from a proof: a CAR encoded UCAN delegating capabilities to this agent. proof is a filesystem path, or a base64 encoded cid string.
+    space ls                  List spaces known to the agent
+    space info                Show information about a space.
+    space use                 Set the current space in use by the agent
+    coupon create             
+    bridge generate-tokens    
+    delegation create         Output a CAR encoded UCAN that delegates capabilities to the audience for the current space.
+    delegation ls             List delegations created by this agent for others.
+    delegation revoke         Revoke a delegation by CID.
+    proof add                 Add a proof delegated to this agent.
+    proof ls                  List proofs of capabilities delegated to this agent.
+    usage report              Display report of current space usage in bytes.
+    can access claim          Claim delegated capabilities for the authorized account.
+    can blob add              Store a blob with the service.
+    can blob ls               List blobs in the current space.
+    can blob rm               Remove a blob from the store by base58btc encoded multihash.
+    can index add             Register an "index" with the service.
+    can store add             Store a CAR file with the service.
+    can store ls              List CAR files in the current space.
+    can store rm              Remove a CAR shard from the store.
+    can upload add            Register an upload - a DAG with the given root data CID that is stored in the given CAR shard(s), identified by CAR CIDs.
+    can upload ls             List uploads in the current space.
+    can upload rm             Remove an upload from the uploads listing.
+    can filecoin info         Get filecoin information for given PieceCid.
+    key create                Generate and print a new ed25519 key pair.
+    reset                     Remove all proofs/delegations from the store but retain the agent DID.
+    help                      Show help text
+
+  For more info, run any command with the `--help` flag
+    $ w3 login --help
+    $ w3 plan get --help
+
+  Options
+    -v, --version    Displays current version
+    -h, --help       Displays this message
+
+  Examples
+    $ w3 login user@example.com
+    $ w3 up path/to/files
