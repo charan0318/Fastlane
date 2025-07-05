@@ -45,57 +45,54 @@ const upload = multer({
 import * as Client from '@web3-storage/w3up-client';
 import { StoreMemory } from '@web3-storage/w3up-client/stores/memory';
 import * as Signer from '@ucanto/principal/ed25519';
-import { Delegation } from '@ucanto/core';
-import { CarReader } from '@ipld/car';
+import { bytesToDelegations } from '@web3-storage/access/encoding';
 
 // Store the client instance (in production, use proper session management)
 let web3StorageClient: any = null;
 
-// Parse delegation proof using proper CAR file parsing
+// Parse delegation proof using official Web3.Storage encoding utilities
 async function parseDelegationProof(proofString: string) {
   try {
-    console.log('Parsing delegation proof with proper CAR parsing...');
+    console.log('Parsing delegation proof with official Web3.Storage utilities...');
     
-    // Decode base64 CAR data from w3cli output
-    const rawBytes = Buffer.from(proofString, 'base64');
+    // Decode base64 CAR data from w3cli output - ensure we get raw bytes
+    const proofBytes = Buffer.from(proofString, 'base64');
     
-    // Parse CAR file and extract delegations
-    const carReader = await CarReader.fromBytes(rawBytes);
-    const roots = await carReader.getRoots();
+    console.log('Proof bytes length:', proofBytes.length);
     
-    console.log('CAR file roots:', roots.length);
-    
-    // Extract delegation from CAR file
-    const delegations = [];
-    for await (const { cid, bytes } of carReader.entries()) {
-      try {
-        const delegation = await Delegation.extract(bytes);
-        if (delegation) {
-          delegations.push(delegation);
-        }
-      } catch (extractError) {
-        console.log('Block not a delegation:', cid.toString());
-      }
+    // Check if we have valid bytes
+    if (proofBytes.length === 0) {
+      throw new Error('Empty delegation proof - no bytes received');
     }
     
-    console.log('Extracted delegations:', delegations.length);
+    // Use the official Web3.Storage delegation encoding utilities
+    const delegations = await bytesToDelegations(proofBytes);
+    
+    console.log('Imported delegations count:', delegations ? delegations.length : 0);
     
     // Verify the returned structure
     if (!delegations || delegations.length === 0) {
-      throw new Error('No delegations found in uploaded proof');
+      throw new Error('No delegations found in uploaded proof - CAR file may be invalid');
     }
     
     // Add guard around delegations[0] access
     if (typeof delegations[0] === 'undefined') {
-      throw new Error('Delegation parsing failed — invalid format');
+      throw new Error('Delegation parsing failed — invalid format in CAR file');
     }
     
-    console.log('Successfully parsed delegation proof');
+    console.log('Successfully parsed delegation proof with official utilities');
     return delegations[0];
     
   } catch (error) {
-    console.error('Failed to parse delegation proof:', error.message);
-    throw new Error(`Delegation parsing failed: ${error.message}`);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Failed to parse delegation proof:', errorMessage);
+    
+    // Provide more specific error guidance
+    if (errorMessage.includes('Unexpected end of data')) {
+      throw new Error('CAR file appears truncated or corrupted. Please regenerate with: w3 delegation create --space=<your-space-id> --output=proof.car');
+    }
+    
+    throw new Error(`Delegation parsing failed: ${errorMessage}`);
   }
 }
 
@@ -154,8 +151,11 @@ async function getWeb3StorageClient() {
             console.log(`Delegation imported successfully for space: ${spaceId}`);
           } catch (delegationError) {
             console.log('Delegation import failed:', delegationError.message);
-            console.log('The delegation proof format may need adjustment');
-            console.log('Continuing in development mode...');
+            console.log('💡 To generate a valid delegation proof, run:');
+            console.log('   w3 delegation create --space=<your-space-id> --output=proof.car');
+            console.log('   Then encode the proof.car file as base64 for the W3UP_PROOF environment variable');
+            console.log('   You can verify the proof with: w3 delegation inspect proof.car');
+            console.log('🔄 Continuing in development mode...');
             web3StorageClient = null;
             return null;
           }
