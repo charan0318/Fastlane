@@ -45,35 +45,46 @@ const upload = multer({
 import * as Client from '@web3-storage/w3up-client';
 import { StoreMemory } from '@web3-storage/w3up-client/stores/memory';
 import * as Signer from '@ucanto/principal/ed25519';
+import { Delegation } from '@ucanto/core';
 
 // Store the client instance (in production, use proper session management)
 let web3StorageClient: any = null;
 
-// Generate or load agent private key
-async function getOrCreateAgent() {
-  const privateKeyEnv = process.env.W3UP_PRIVATE_KEY;
-  
-  if (privateKeyEnv) {
-    try {
-      // Parse existing private key from environment
-      return Signer.parse(privateKeyEnv);
-    } catch (error) {
-      console.warn('Failed to parse W3UP_PRIVATE_KEY, generating new agent:', error.message);
-    }
+// Parse and import delegation proof
+async function importDelegationProof(proofString: string) {
+  try {
+    // Parse the proof from base64 or CAR format
+    const proofData = Buffer.from(proofString, 'base64');
+    const delegation = await Delegation.extract(proofData);
+    return delegation;
+  } catch (error) {
+    console.error('Failed to parse delegation proof:', error);
+    throw new Error('Invalid delegation proof format');
   }
-  
-  // Generate new agent if no valid key exists
-  const agent = await Signer.generate();
-  console.log('🔑 Generated new Web3.Storage agent. Add this to your .env file:');
-  console.log(`W3UP_PRIVATE_KEY=${agent.did()}`);
-  return agent;
 }
 
 async function getWeb3StorageClient() {
   if (!web3StorageClient) {
     try {
-      // Get or create authenticated agent
-      const agent = await getOrCreateAgent();
+      const privateKey = process.env.W3UP_PRIVATE_KEY;
+      const proof = process.env.W3UP_PROOF;
+      const spaceId = process.env.W3UP_SPACE;
+      
+      if (!privateKey || !proof || !spaceId) {
+        throw new Error('Missing required Web3.Storage credentials (W3UP_PRIVATE_KEY, W3UP_PROOF, W3UP_SPACE)');
+      }
+      
+      console.log('Configuring Web3.Storage client with provided credentials...');
+      
+      // Parse the private key - handle both DID and raw key formats
+      let agent;
+      if (privateKey.startsWith('did:key:')) {
+        // This is a DID, we need the actual private key
+        throw new Error('W3UP_PRIVATE_KEY should be the private key string, not the DID. Please provide the actual private key.');
+      } else {
+        // This should be the raw private key
+        agent = Signer.parse(privateKey);
+      }
       
       // Create client with store and agent
       const store = new StoreMemory();
@@ -82,42 +93,28 @@ async function getWeb3StorageClient() {
         principal: agent
       });
       
-      // Check if we have any existing spaces
-      const spaces = await web3StorageClient.spaces();
+      // Import the delegation proof
+      const delegation = await importDelegationProof(proof);
+      await web3StorageClient.addSpace(delegation);
       
-      if (spaces.length > 0) {
-        // Use the first available space
-        await web3StorageClient.setCurrentSpace(spaces[0].did());
-        console.log(`Web3.Storage client configured with existing space: ${spaces[0].did()}`);
-      } else {
-        console.log('⚠️  No spaces available. Please create a space using w3cli or the Web3.Storage console.');
-        console.log('   Visit: https://console.web3.storage/');
-        
-        // Try to create a space (may require additional setup)
-        try {
-          const space = await web3StorageClient.createSpace('fastlane-dev');
-          await web3StorageClient.setCurrentSpace(space.did());
-          console.log(`✅ Created and configured new space: ${space.did()}`);
-        } catch (spaceError) {
-          console.warn('Failed to create space automatically:', spaceError.message);
-          console.log('⚠️  Unable to create space - continuing in development mode');
-          web3StorageClient = null;
-          return null;
-        }
-      }
+      // Set the current space
+      await web3StorageClient.setCurrentSpace(spaceId);
+      
+      console.log(`Web3.Storage client configured successfully with space: ${spaceId}`);
       
     } catch (error) {
       console.error('Failed to configure Web3.Storage client:', error);
       
       // Enhanced error handling for specific cases
       if (error.message && (error.message.includes("no proofs") || error.message.includes("spaces"))) {
-        console.log("⚠️  Web3.Storage space/authentication issue - using development fallback");
-        console.log("   To fix: Visit https://console.web3.storage/ and create a space");
+        console.log("Web3.Storage space/authentication issue - check your credentials");
+        console.log("Visit https://console.web3.storage/ to verify your space and delegation");
       } else if (error.message && (error.message.includes("network") || error.message.includes("fetch") || error.message.includes("SocketError"))) {
-        console.log("⚠️  Network connectivity issue - check internet connection");
-        console.log("   Continuing in development mode with mock data");
+        console.log("Network connectivity issue - check internet connection");
+        console.log("Continuing in development mode with mock data");
       } else {
-        console.log("⚠️  Web3.Storage configuration failed - using development fallback");
+        console.log("Web3.Storage configuration failed - using development fallback");
+        console.log("Error details:", error.message);
       }
       
       // Set client to null to trigger fallback mode
