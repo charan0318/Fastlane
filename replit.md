@@ -102,7 +102,7 @@ Fastlane CDN is a decentralized content delivery network built for Web3 applicat
 
 ### Environment Configuration
 ```
-DATABASE_URL=postgresql://...
+DATABASE_URL=postgresql://postgres:[Charan#04]@db.wfardaicsntirklqbtfb.supabase.co:5432/postgres
 ESTUARY_TOKEN=your_estuary_api_key
 NODE_ENV=production
 ```
