@@ -41,88 +41,61 @@ const upload = multer({
   },
 });
 
-// Web3.Storage configuration using w3up-client
-import * as Client from '@web3-storage/w3up-client';
-import { StoreMemory } from '@web3-storage/w3up-client/stores/memory';
-import * as Signer from '@ucanto/principal/ed25519';
-import { Delegation } from '@ucanto/core';
+// Simplified Web3.Storage configuration using direct API calls
+// This approach bypasses the complex w3up-client authentication issues
+import { createHash } from 'crypto';
 
 // Store the client instance (in production, use proper session management)
 let web3StorageClient: any = null;
 
-// Parse and import delegation proof
-async function importDelegationProof(proofString: string) {
+// Direct Web3.Storage API upload function
+async function uploadToWeb3StorageAPI(fileBuffer: Buffer, filename: string): Promise<{
+  cid: string;
+  dealId?: string;
+  filcdnUrl: string;
+}> {
   try {
-    // Parse the proof from base64 or CAR format
-    const proofData = Buffer.from(proofString, 'base64');
-    const delegation = await Delegation.extract(proofData);
-    return delegation;
-  } catch (error) {
-    console.error('Failed to parse delegation proof:', error);
-    throw new Error('Invalid delegation proof format');
+    // Use Web3.Storage HTTP API instead of w3up-client
+    const formData = new FormData();
+    const file = new File([fileBuffer], filename, {
+      type: getMimeType(filename)
+    });
+    formData.append('file', file);
+
+    const response = await fetch('https://api.web3.storage/upload', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.WEB3_STORAGE_TOKEN || 'not-set'}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Web3.Storage API error: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    const cid = result.cid;
+    
+    console.log(`Upload successful! CID: ${cid}`);
+    
+    return {
+      cid: cid,
+      dealId: `w3s-${cid.slice(0, 8)}`,
+      filcdnUrl: `https://w3s.link/ipfs/${cid}`,
+    };
+  } catch (error: any) {
+    console.error('Web3.Storage API upload error:', error.message);
+    throw error;
   }
 }
 
 async function getWeb3StorageClient() {
-  if (!web3StorageClient) {
-    try {
-      const privateKey = process.env.W3UP_PRIVATE_KEY;
-      const proof = process.env.W3UP_PROOF;
-      const spaceId = process.env.W3UP_SPACE;
-      
-      if (!privateKey || !proof || !spaceId) {
-        throw new Error('Missing required Web3.Storage credentials (W3UP_PRIVATE_KEY, W3UP_PROOF, W3UP_SPACE)');
-      }
-      
-      console.log('Configuring Web3.Storage client with provided credentials...');
-      
-      // Parse the private key - handle both DID and raw key formats
-      let agent;
-      if (privateKey.startsWith('did:key:')) {
-        // This is a DID, we need the actual private key
-        throw new Error('W3UP_PRIVATE_KEY should be the private key string, not the DID. Please provide the actual private key.');
-      } else {
-        // This should be the raw private key
-        agent = Signer.parse(privateKey);
-      }
-      
-      // Create client with store and agent
-      const store = new StoreMemory();
-      web3StorageClient = await Client.create({ 
-        store,
-        principal: agent
-      });
-      
-      // Import the delegation proof
-      const delegation = await importDelegationProof(proof);
-      await web3StorageClient.addSpace(delegation);
-      
-      // Set the current space
-      await web3StorageClient.setCurrentSpace(spaceId);
-      
-      console.log(`Web3.Storage client configured successfully with space: ${spaceId}`);
-      
-    } catch (error) {
-      console.error('Failed to configure Web3.Storage client:', error);
-      
-      // Enhanced error handling for specific cases
-      if (error.message && (error.message.includes("no proofs") || error.message.includes("spaces"))) {
-        console.log("Web3.Storage space/authentication issue - check your credentials");
-        console.log("Visit https://console.web3.storage/ to verify your space and delegation");
-      } else if (error.message && (error.message.includes("network") || error.message.includes("fetch") || error.message.includes("SocketError"))) {
-        console.log("Network connectivity issue - check internet connection");
-        console.log("Continuing in development mode with mock data");
-      } else {
-        console.log("Web3.Storage configuration failed - using development fallback");
-        console.log("Error details:", error.message);
-      }
-      
-      // Set client to null to trigger fallback mode
-      web3StorageClient = null;
-      return null;
-    }
-  }
-  return web3StorageClient;
+  // For now, return a mock client that indicates we're using direct API calls
+  return {
+    type: 'direct-api',
+    upload: uploadToWeb3StorageAPI
+  };
 }
 
 async function uploadToWeb3Storage(fileBuffer: Buffer, filename: string): Promise<{
@@ -130,63 +103,10 @@ async function uploadToWeb3Storage(fileBuffer: Buffer, filename: string): Promis
   dealId?: string;
   filcdnUrl: string;
 }> {
-  try {
-    const client = await getWeb3StorageClient();
-    
-    if (!client) {
-      console.log('📦 Using development mode - Web3.Storage client unavailable');
-      
-      // Generate a realistic mock CID based on file content
-      const mockCid = `bafybeig${Buffer.from(filename + Date.now()).toString('hex').slice(0, 52)}`;
-      const dealId = `dev-${Date.now().toString(36)}`;
-      
-      console.log(`🔄 Development mode: Generated mock CID ${mockCid} for ${filename}`);
-      
-      return {
-        cid: mockCid,
-        dealId,
-        filcdnUrl: `https://dweb.link/ipfs/${mockCid}`,
-      };
-    }
-    
-    // Create a File object from the buffer
-    const file = new File([fileBuffer], filename, {
-      type: getMimeType(filename)
-    });
-    
-    console.log(`🚀 Uploading ${filename} (${Math.round(fileBuffer.length / 1024)}KB) to Web3.Storage`);
-    
-    // Upload the file to Web3.Storage
-    const cid = await client.uploadFile(file);
-    
-    // Generate FilCDN URL and gateway URL
-    const filcdnUrl = `https://w3s.link/ipfs/${cid}`;
-    
-    console.log(`✅ Upload successful! CID: ${cid}`);
-    
-    return {
-      cid: cid.toString(),
-      dealId: `w3s-${cid.toString().slice(0, 8)}`,
-      filcdnUrl,
-    };
-  } catch (error: any) {
-    console.error('❌ Web3.Storage upload error:', error.message);
-    
-    // Enhanced fallback with realistic mock data
-    console.log('🔄 Activating development fallback mode');
-    
-    // Generate a realistic mock CID based on file content
-    const mockCid = `bafybeig${Buffer.from(filename + Date.now()).toString('hex').slice(0, 52)}`;
-    const dealId = `dev-${Date.now().toString(36)}`;
-    
-    console.log(`🔄 Fallback mode: Generated mock CID ${mockCid} for ${filename}`);
-    
-    return {
-      cid: mockCid,
-      dealId,
-      filcdnUrl: `https://dweb.link/ipfs/${mockCid}`,
-    };
-  }
+  console.log(`Uploading ${filename} (${Math.round(fileBuffer.length / 1024)}KB) to Web3.Storage`);
+  
+  // Use direct Web3.Storage HTTP API
+  return await uploadToWeb3StorageAPI(fileBuffer, filename);
 }
 
 function getMimeType(filename: string): string {
