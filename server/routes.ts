@@ -51,18 +51,34 @@ import { CarReader } from '@ipld/car';
 // Store the client instance (in production, use proper session management)
 let web3StorageClient: any = null;
 
-// Parse delegation proof from base64 CAR data
+// Parse delegation proof using Web3.Storage's recommended method
 async function parseDelegationProof(proofString: string) {
   try {
     // Decode base64 CAR data from w3cli output
-    const carBytes = Buffer.from(proofString, 'base64');
+    const carBytes = new Uint8Array(Buffer.from(proofString, 'base64'));
     
-    // Extract delegation directly using ucanto
-    const delegation = await Delegation.extract(carBytes);
-    return delegation;
+    // Use the more robust Delegation.extract method
+    const delegations = await Delegation.extract(carBytes);
+    
+    // Extract expects an array of delegations, take the first one
+    if (Array.isArray(delegations) && delegations.length > 0) {
+      return delegations[0];
+    } else if (delegations && !Array.isArray(delegations)) {
+      return delegations;
+    } else {
+      throw new Error('No valid delegations found in proof');
+    }
   } catch (error) {
     console.error('Failed to parse delegation proof:', error);
-    throw new Error(`Invalid delegation proof format: ${error.message}`);
+    
+    // Try alternative parsing method
+    try {
+      const carBytes = Buffer.from(proofString, 'base64');
+      const delegation = await Delegation.extract(carBytes);
+      return delegation;
+    } catch (altError) {
+      throw new Error(`Delegation parsing failed: ${error.message}`);
+    }
   }
 }
 
@@ -112,14 +128,20 @@ async function getWeb3StorageClient() {
           await web3StorageClient.setCurrentSpace(space.did());
           console.log(`Using existing space: ${space.did()}`);
         } else {
-          // For production use, you would need to properly import the delegation
-          // For now, inform about the delegation requirement
-          console.log('No spaces available for this agent');
-          console.log('To use Web3.Storage, the agent needs proper delegation');
-          console.log('Visit https://console.web3.storage/ to set up delegation');
-          console.log('Continuing in development mode...');
-          web3StorageClient = null;
-          return null;
+          // Try to import delegation to gain space access
+          console.log('Attempting to import delegation proof...');
+          try {
+            const delegation = await parseDelegationProof(proof);
+            await web3StorageClient.addSpace(delegation);
+            await web3StorageClient.setCurrentSpace(spaceId);
+            console.log(`Delegation imported successfully for space: ${spaceId}`);
+          } catch (delegationError) {
+            console.log('Delegation import failed:', delegationError.message);
+            console.log('The delegation proof format may need adjustment');
+            console.log('Continuing in development mode...');
+            web3StorageClient = null;
+            return null;
+          }
         }
         
         // Test upload capability
