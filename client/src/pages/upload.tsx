@@ -1,413 +1,327 @@
 
-import { useState, useRef } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
+import { useState, useRef } from "react";
+import { useWallet } from "../hooks/use-wallet";
+import { uploadFile } from "../lib/estuary";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Progress } from "../components/ui/progress";
+import { Badge } from "../components/ui/badge";
+import { Alert, AlertDescription } from "../components/ui/alert";
 import { 
-  CloudUpload, 
-  X, 
+  Upload, 
   File, 
-  Check, 
-  Upload,
-  Shield,
+  CheckCircle, 
+  XCircle, 
+  Loader2, 
+  Cloud, 
+  Shield, 
   Zap,
   FileText,
   Image,
   Code,
-  Box,
-  AlertCircle,
-  Sparkles
-} from 'lucide-react';
-import { useWallet } from '@/hooks/use-wallet';
-import { uploadFile } from '@/lib/estuary';
-import { useToast } from '@/hooks/use-toast';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+  Film,
+  Music,
+  Archive
+} from "lucide-react";
+
+interface UploadedFile {
+  file: File;
+  status: 'uploading' | 'success' | 'error';
+  result?: any;
+  error?: string;
+  progress: number;
+}
+
+const getFileIcon = (mimeType: string) => {
+  if (mimeType.startsWith('image/')) return <Image className="w-5 h-5 text-blue-400" />;
+  if (mimeType.startsWith('video/')) return <Film className="w-5 h-5 text-purple-400" />;
+  if (mimeType.startsWith('audio/')) return <Music className="w-5 h-5 text-green-400" />;
+  if (mimeType.includes('javascript') || mimeType.includes('json') || mimeType.includes('css') || mimeType.includes('html')) 
+    return <Code className="w-5 h-5 text-yellow-400" />;
+  if (mimeType.includes('zip') || mimeType.includes('archive')) return <Archive className="w-5 h-5 text-gray-400" />;
+  return <FileText className="w-5 h-5 text-slate-400" />;
+};
+
+const formatFileSize = (bytes: number) => {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
 
 export default function Upload() {
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [pdpEnabled, setPdpEnabled] = useState(true);
-  const [filcdnEnabled, setFilcdnEnabled] = useState(true);
-  const [dragActive, setDragActive] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { address, isConnected } = useWallet();
-  const { toast } = useToast();
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
   const uploadMutation = useMutation({
-    mutationFn: async (files: File[]) => {
-      const results = [];
-
-      for (const file of files) {
-        const result = await uploadFile(file, address!);
-        results.push(result);
-      }
-
-      return results;
+    mutationFn: async ({ file, walletAddress }: { file: File; walletAddress: string }) => {
+      return await uploadFile(file, walletAddress);
     },
-    onSuccess: (results) => {
-      toast({
-        title: 'Upload Successful!',
-        description: `${results.length} file(s) uploaded and storage deals created`,
-      });
-      setSelectedFiles([]);
-
-      queryClient.invalidateQueries({ queryKey: ['/api/files', address] });
-      queryClient.invalidateQueries({ queryKey: ['/api/stats', address] });
-    },
-    onError: (error) => {
-      toast({
-        title: 'Upload Failed',
-        description: error.message,
-        variant: 'destructive',
-      });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['files'] });
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
     },
   });
 
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true);
-    } else if (e.type === 'dragleave') {
-      setDragActive(false);
+  const handleFileSelect = async (files: FileList | null) => {
+    if (!files || !isConnected || !address) return;
+
+    const fileArray = Array.from(files);
+    const newUploadedFiles: UploadedFile[] = fileArray.map(file => ({
+      file,
+      status: 'uploading' as const,
+      progress: 0,
+    }));
+
+    setUploadedFiles(prev => [...prev, ...newUploadedFiles]);
+
+    // Process uploads sequentially with progress simulation
+    for (let i = 0; i < fileArray.length; i++) {
+      const file = fileArray[i];
+      const fileIndex = uploadedFiles.length + i;
+
+      try {
+        // Simulate upload progress
+        const progressInterval = setInterval(() => {
+          setUploadedFiles(prev => prev.map((uploadFile, idx) => 
+            idx === fileIndex && uploadFile.progress < 90 
+              ? { ...uploadFile, progress: uploadFile.progress + Math.random() * 15 }
+              : uploadFile
+          ));
+        }, 200);
+
+        const result = await uploadMutation.mutateAsync({ file, walletAddress: address });
+        
+        clearInterval(progressInterval);
+        
+        setUploadedFiles(prev => prev.map((uploadFile, idx) => 
+          idx === fileIndex 
+            ? { ...uploadFile, status: 'success', result, progress: 100 }
+            : uploadFile
+        ));
+      } catch (error) {
+        setUploadedFiles(prev => prev.map((uploadFile, idx) => 
+          idx === fileIndex 
+            ? { 
+                ...uploadFile, 
+                status: 'error', 
+                error: error instanceof Error ? error.message : 'Upload failed',
+                progress: 0
+              }
+            : uploadFile
+        ));
+      }
     }
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-
-    const files = Array.from(e.dataTransfer.files);
-    addFiles(files);
+    setIsDragOver(false);
+    handleFileSelect(e.dataTransfer.files);
   };
 
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    addFiles(files);
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
   };
 
-  const addFiles = (files: File[]) => {
-    const allowedTypes = [
-      'text/html',
-      'text/css',
-      'application/javascript',
-      'application/json',
-      'image/jpeg',
-      'image/png',
-      'image/svg+xml',
-      'model/gltf-binary',
-      'model/gltf+json',
-    ];
-
-    const validFiles = files.filter(file => {
-      const isValidType = allowedTypes.includes(file.type) || file.name.endsWith('.glb');
-      const isValidSize = file.size <= 50 * 1024 * 1024;
-
-      if (!isValidType) {
-        toast({
-          title: 'Invalid File Type',
-          description: `${file.name} is not a supported file type`,
-          variant: 'destructive',
-        });
-      }
-
-      if (!isValidSize) {
-        toast({
-          title: 'File Too Large',
-          description: `${file.name} exceeds 50MB limit`,
-          variant: 'destructive',
-        });
-      }
-
-      return isValidType && isValidSize;
-    });
-
-    setSelectedFiles(prev => [...prev, ...validFiles]);
-  };
-
-  const removeFile = (index: number) => {
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  const getFileIcon = (filename: string) => {
-    const ext = filename.toLowerCase().split('.').pop();
-    if (['jpg', 'jpeg', 'png', 'svg'].includes(ext || '')) return <Image className="w-5 h-5" />;
-    if (['js', 'html', 'css', 'json'].includes(ext || '')) return <Code className="w-5 h-5" />;
-    if (['glb', 'gltf'].includes(ext || '')) return <Box className="w-5 h-5" />;
-    return <FileText className="w-5 h-5" />;
-  };
-
-  const handleUpload = () => {
-    if (!isConnected) {
-      toast({
-        title: 'Wallet Not Connected',
-        description: 'Please connect your wallet to upload files',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (selectedFiles.length === 0) {
-      toast({
-        title: 'No Files Selected',
-        description: 'Please select files to upload',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    uploadMutation.mutate(selectedFiles);
+  const handleDragLeave = () => {
+    setIsDragOver(false);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative">
-      {/* Background Effects */}
-      <div className="absolute inset-0">
-        <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl opacity-50" />
-        <div className="absolute bottom-1/4 left-1/4 w-96 h-96 bg-violet-500/5 rounded-full blur-3xl opacity-50" />
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 relative overflow-hidden">
+      {/* Animated background elements */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-600/20 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-600/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-600/10 rounded-full blur-3xl animate-pulse delay-500"></div>
       </div>
 
-      <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        {/* Header */}
-        <div className="text-center mb-16">
-          <div className="flex justify-center mb-6">
-            <Badge className="bg-primary/10 text-primary border-primary/20 px-4 py-2 text-sm font-medium">
-              <Upload className="w-4 h-4 mr-2" />
-              Decentralized Storage
-            </Badge>
-          </div>
-          <h1 className="text-5xl md:text-6xl font-bold mb-6">
-            <span className="bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
-              Upload Your
-            </span>
-            <br />
-            <span className="bg-gradient-to-r from-primary to-blue-400 bg-clip-text text-transparent">
-              Digital Assets
-            </span>
-          </h1>
-          <p className="text-xl text-slate-300 max-w-3xl mx-auto leading-relaxed">
-            Store your files on IPFS and Filecoin with cryptographic proof of possession. 
-            Deliver globally through our FilCDN network.
-          </p>
-        </div>
+      <div className="relative z-10 py-20 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto">
+          {/* Header Section */}
+          <div className="text-center mb-12 space-y-6">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600/20 border border-blue-500/30 rounded-full text-blue-300 text-sm font-medium backdrop-blur-sm">
+              <Zap className="w-4 h-4" />
+              Web3.Storage Integration
+            </div>
+            
+            <h1 className="text-5xl font-bold bg-gradient-to-r from-white via-blue-200 to-cyan-200 bg-clip-text text-transparent">
+              Upload to the Future
+            </h1>
+            
+            <p className="text-xl text-slate-300 max-w-2xl mx-auto leading-relaxed">
+              Securely store your files on IPFS and Filecoin with automated PDP verification and global CDN delivery
+            </p>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Main Upload Area */}
-          <div className="lg:col-span-2 space-y-8">
-            <Card className="bg-slate-900/50 backdrop-blur border-slate-700/50 shadow-2xl">
-              <CardContent className="p-8">
-                {/* Upload Zone */}
-                <div
-                  className={`relative border-2 border-dashed rounded-2xl p-16 text-center cursor-pointer transition-all duration-300 group ${
-                    dragActive 
-                      ? 'border-primary bg-primary/5 scale-[1.02]' 
-                      : 'border-slate-600 hover:border-primary/50 hover:bg-slate-800/30'
-                  }`}
-                  onDragEnter={handleDrag}
-                  onDragLeave={handleDrag}
-                  onDragOver={handleDrag}
-                  onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-violet-500/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  <div className="relative">
-                    <CloudUpload className={`w-16 h-16 mx-auto mb-6 transition-all duration-300 ${
-                      dragActive ? 'text-primary scale-110' : 'text-slate-400 group-hover:text-primary group-hover:scale-105'
-                    }`} />
-                    <h3 className="text-2xl font-bold text-white mb-3">
-                      {dragActive ? 'Drop files here' : 'Drag & drop files here'}
-                    </h3>
-                    <p className="text-slate-400 mb-6 text-lg">
-                      or <span className="text-primary font-semibold">click to browse</span>
-                    </p>
-                    <div className="flex flex-wrap justify-center gap-3 mb-4">
-                      {['HTML', 'JS', 'CSS', 'JSON', 'Images', '3D Models'].map(type => (
-                        <Badge key={type} variant="secondary" className="bg-slate-800 text-slate-300 border-slate-600">
-                          {type}
-                        </Badge>
-                      ))}
+            {/* Feature badges */}
+            <div className="flex flex-wrap justify-center gap-3 mt-6">
+              <Badge variant="secondary" className="bg-slate-800/50 border-slate-600 text-slate-300 px-3 py-1">
+                <Shield className="w-3 h-3 mr-1" />
+                Decentralized Storage
+              </Badge>
+              <Badge variant="secondary" className="bg-slate-800/50 border-slate-600 text-slate-300 px-3 py-1">
+                <Cloud className="w-3 h-3 mr-1" />
+                Global CDN
+              </Badge>
+              <Badge variant="secondary" className="bg-slate-800/50 border-slate-600 text-slate-300 px-3 py-1">
+                <CheckCircle className="w-3 h-3 mr-1" />
+                PDP Verified
+              </Badge>
+            </div>
+          </div>
+
+          {/* Upload Section */}
+          <Card className="bg-slate-900/40 border-slate-700/50 backdrop-blur-xl shadow-2xl">
+            <CardHeader className="text-center pb-6">
+              <CardTitle className="text-2xl font-semibold text-white">
+                Upload Your Files
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {isConnected ? (
+                <>
+                  {/* Drag & Drop Zone */}
+                  <div
+                    className={`
+                      relative border-2 border-dashed rounded-2xl p-12 text-center transition-all duration-300 cursor-pointer
+                      ${isDragOver 
+                        ? 'border-blue-400 bg-blue-500/10 scale-105' 
+                        : 'border-slate-600 hover:border-slate-500 hover:bg-slate-800/30'
+                      }
+                    `}
+                    onDrop={handleDrop}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <div className="space-y-4">
+                      <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300 ${
+                        isDragOver ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-700/50 text-slate-400'
+                      }`}>
+                        <Upload className="w-8 h-8" />
+                      </div>
+                      
+                      <div>
+                        <h3 className="text-xl font-semibold text-white mb-2">
+                          {isDragOver ? 'Drop files here' : 'Drag & drop files'}
+                        </h3>
+                        <p className="text-slate-400 mb-4">
+                          or click to browse your computer
+                        </p>
+                        <Button 
+                          variant="outline" 
+                          className="bg-slate-800/50 border-slate-600 hover:bg-slate-700/50 text-white"
+                        >
+                          Choose Files
+                        </Button>
+                      </div>
+                      
+                      <div className="text-xs text-slate-500 space-y-1">
+                        <p>Supported: HTML, CSS, JS, JSON, Images, GLB/GLTF</p>
+                        <p>Maximum file size: 50MB</p>
+                      </div>
                     </div>
-                    <p className="text-sm text-slate-500">Maximum file size: 50MB</p>
                   </div>
+
                   <input
                     ref={fileInputRef}
                     type="file"
                     multiple
-                    accept=".html,.js,.css,.json,.jpg,.jpeg,.png,.svg,.glb,.gltf"
-                    onChange={handleFileInput}
                     className="hidden"
+                    accept=".html,.css,.js,.json,.jpg,.jpeg,.png,.svg,.glb,.gltf"
+                    onChange={(e) => handleFileSelect(e.target.files)}
                   />
-                </div>
 
-                {/* Selected Files */}
-                {selectedFiles.length > 0 && (
-                  <div className="mt-8">
-                    <h4 className="text-lg font-semibold text-white mb-4 flex items-center">
-                      <File className="w-5 h-5 mr-2 text-primary" />
-                      Selected Files ({selectedFiles.length})
-                    </h4>
-                    <div className="space-y-3 max-h-60 overflow-y-auto">
-                      {selectedFiles.map((file, index) => (
-                        <div key={index} className="flex items-center justify-between p-4 bg-slate-800/50 rounded-xl border border-slate-700/50 group hover:bg-slate-800/70 transition-colors">
-                          <div className="flex items-center space-x-4">
-                            <div className="text-primary">
-                              {getFileIcon(file.name)}
+                  {/* Development Mode Alert */}
+                  <Alert className="bg-amber-900/20 border-amber-700/30 text-amber-200">
+                    <Zap className="h-4 w-4" />
+                    <AlertDescription className="text-sm">
+                      <strong>Development Mode:</strong> Files are uploaded with simulated Web3.Storage integration. 
+                      Full decentralized storage requires proper Web3.Storage authentication setup.
+                    </AlertDescription>
+                  </Alert>
+
+                  {/* Upload Progress Section */}
+                  {uploadedFiles.length > 0 && (
+                    <div className="space-y-3">
+                      <h3 className="text-lg font-semibold text-white mb-4">Upload Progress</h3>
+                      {uploadedFiles.map((uploadFile, index) => (
+                        <Card key={index} className="bg-slate-800/30 border-slate-700/50">
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-3 mb-3">
+                              {getFileIcon(uploadFile.file.type)}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-white truncate">
+                                  {uploadFile.file.name}
+                                </p>
+                                <p className="text-xs text-slate-400">
+                                  {formatFileSize(uploadFile.file.size)}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {uploadFile.status === 'uploading' && (
+                                  <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
+                                )}
+                                {uploadFile.status === 'success' && (
+                                  <CheckCircle className="w-4 h-4 text-green-400" />
+                                )}
+                                {uploadFile.status === 'error' && (
+                                  <XCircle className="w-4 h-4 text-red-400" />
+                                )}
+                              </div>
                             </div>
-                            <div>
-                              <span className="text-white font-medium">{file.name}</span>
-                              <p className="text-sm text-slate-400">{formatFileSize(file.size)}</p>
-                            </div>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeFile(index)}
-                            className="text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </div>
+                            
+                            {uploadFile.status === 'uploading' && (
+                              <Progress value={uploadFile.progress} className="h-2" />
+                            )}
+                            
+                            {uploadFile.status === 'success' && uploadFile.result && (
+                              <div className="text-xs text-green-400 mt-2 space-y-1">
+                                <p>✅ Uploaded successfully!</p>
+                                <p className="font-mono">CID: {uploadFile.result.cid.slice(0, 20)}...</p>
+                              </div>
+                            )}
+                            
+                            {uploadFile.status === 'error' && (
+                              <p className="text-xs text-red-400 mt-2">
+                                ❌ {uploadFile.error}
+                              </p>
+                            )}
+                          </CardContent>
+                        </Card>
                       ))}
                     </div>
-                  </div>
-                )}
-
-                {/* Upload Progress */}
-                {uploadMutation.isPending && (
-                  <div className="mt-8 p-6 bg-primary/5 border border-primary/20 rounded-xl">
-                    <div className="flex items-center justify-between mb-4">
-                      <span className="text-white font-medium">Creating Storage Deals...</span>
-                      <span className="text-primary font-medium">Processing</span>
-                    </div>
-                    <Progress value={50} className="h-3 bg-slate-800" />
-                    <p className="text-sm text-slate-400 mt-2">
-                      Your files are being stored on IPFS and Filecoin network
-                    </p>
-                  </div>
-                )}
-
-                {/* Upload Button */}
-                <div className="mt-8">
-                  <Button
-                    onClick={handleUpload}
-                    disabled={selectedFiles.length === 0 || uploadMutation.isPending || !isConnected}
-                    className="w-full bg-gradient-to-r from-primary to-blue-500 hover:from-primary/90 hover:to-blue-500/90 text-white py-4 text-lg font-semibold rounded-xl shadow-lg transition-all duration-300 group disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {uploadMutation.isPending ? (
-                      <>
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3" />
-                        Creating Storage Deal...
-                      </>
-                    ) : uploadMutation.isSuccess ? (
-                      <>
-                        <Check className="w-5 h-5 mr-3" />
-                        Storage Deal Created!
-                      </>
-                    ) : (
-                      <>
-                        <CloudUpload className="w-5 h-5 mr-3 group-hover:scale-110 transition-transform" />
-                        Create Storage Deal
-                      </>
-                    )}
-                  </Button>
-
-                  {!isConnected && (
-                    <div className="mt-4 p-4 bg-orange-500/10 border border-orange-500/20 rounded-xl flex items-center">
-                      <AlertCircle className="w-5 h-5 text-orange-400 mr-3" />
-                      <span className="text-orange-300">Please connect your wallet to upload files</span>
-                    </div>
                   )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Settings Sidebar */}
-          <div className="space-y-6">
-            {/* Upload Settings */}
-            <Card className="bg-slate-900/50 backdrop-blur border-slate-700/50">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center">
-                  <Sparkles className="w-5 h-5 mr-2 text-primary" />
-                  Storage Options
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-slate-800/30 rounded-xl border border-slate-700/30">
-                    <div className="flex items-start space-x-3">
-                      <Shield className="w-5 h-5 text-emerald-400 mt-0.5" />
-                      <div>
-                        <Label htmlFor="pdp-toggle" className="text-white font-medium">PDP Storage</Label>
-                        <p className="text-sm text-slate-400">Cryptographic proof of data possession</p>
-                      </div>
-                    </div>
-                    <Switch
-                      id="pdp-toggle"
-                      checked={pdpEnabled}
-                      onCheckedChange={setPdpEnabled}
-                      className="data-[state=checked]:bg-emerald-500"
-                    />
+                </>
+              ) : (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-700/50 flex items-center justify-center">
+                    <Shield className="w-8 h-8 text-slate-400" />
                   </div>
-
-                  <div className="flex items-center justify-between p-4 bg-slate-800/30 rounded-xl border border-slate-700/30">
-                    <div className="flex items-start space-x-3">
-                      <Zap className="w-5 h-5 text-violet-400 mt-0.5" />
-                      <div>
-                        <Label htmlFor="filcdn-toggle" className="text-white font-medium">FilCDN Delivery</Label>
-                        <p className="text-sm text-slate-400">Global edge caching network</p>
-                      </div>
-                    </div>
-                    <Switch
-                      id="filcdn-toggle"
-                      checked={filcdnEnabled}
-                      onCheckedChange={setFilcdnEnabled}
-                      className="data-[state=checked]:bg-violet-500"
-                    />
-                  </div>
+                  <h3 className="text-xl font-semibold text-white mb-2">
+                    Connect Your Wallet
+                  </h3>
+                  <p className="text-slate-400 mb-6">
+                    Please connect your wallet to start uploading files to the decentralized web
+                  </p>
+                  <Button 
+                    variant="default" 
+                    size="lg"
+                    className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+                  >
+                    Connect Wallet
+                  </Button>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* How It Works */}
-            <Card className="bg-slate-900/50 backdrop-blur border-slate-700/50">
-              <CardHeader>
-                <CardTitle className="text-white">How It Works</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-4">
-                  {[
-                    { step: '1', title: 'Upload Files', desc: 'Select and upload your digital assets' },
-                    { step: '2', title: 'IPFS Storage', desc: 'Files stored on distributed network' },
-                    { step: '3', title: 'Filecoin Deal', desc: 'Long-term storage deal created' },
-                    { step: '4', title: 'Global CDN', desc: 'Instant delivery worldwide' }
-                  ].map((item, index) => (
-                    <div key={index} className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-primary/20 text-primary rounded-full flex items-center justify-center text-sm font-bold">
-                        {item.step}
-                      </div>
-                      <div>
-                        <p className="text-white font-medium text-sm">{item.title}</p>
-                        <p className="text-slate-400 text-xs">{item.desc}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
