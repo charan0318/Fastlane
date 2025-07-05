@@ -1,4 +1,7 @@
 import { files, deals, type File, type Deal, type InsertFile, type InsertDeal, type FileWithDeal } from "@shared/schema";
+import { drizzle } from "drizzle-orm/neon-serverless";
+import { Pool } from "@neondatabase/serverless";
+import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
   // File operations
@@ -23,6 +26,151 @@ export interface IStorage {
     totalStorage: number;
     cdnRequests: number;
   }>;
+}
+
+export class DatabaseStorage implements IStorage {
+  private db: ReturnType<typeof drizzle>;
+
+  constructor() {
+    if (!process.env.DATABASE_URL) {
+      throw new Error("DATABASE_URL environment variable is required");
+    }
+    
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    this.db = drizzle(pool);
+  }
+
+  async createFile(insertFile: InsertFile): Promise<File> {
+    const [file] = await this.db
+      .insert(files)
+      .values(insertFile)
+      .returning();
+    return file;
+  }
+
+  async getFile(id: number): Promise<File | undefined> {
+    const [file] = await this.db
+      .select()
+      .from(files)
+      .where(eq(files.id, id))
+      .limit(1);
+    return file;
+  }
+
+  async getFilesByCid(cid: string): Promise<File[]> {
+    return await this.db
+      .select()
+      .from(files)
+      .where(eq(files.cid, cid));
+  }
+
+  async getFilesByWallet(walletAddress: string): Promise<FileWithDeal[]> {
+    const userFiles = await this.db
+      .select()
+      .from(files)
+      .where(eq(files.walletAddress, walletAddress))
+      .orderBy(desc(files.uploadedAt));
+
+    // Get deals for each file
+    const filesWithDeals: FileWithDeal[] = [];
+    for (const file of userFiles) {
+      const [deal] = await this.db
+        .select()
+        .from(deals)
+        .where(eq(deals.cid, file.cid))
+        .limit(1);
+      
+      filesWithDeals.push({ ...file, deal });
+    }
+
+    return filesWithDeals;
+  }
+
+  async updateFileStatus(id: number, status: string, pdpVerified?: boolean): Promise<void> {
+    const updateData: any = { status };
+    if (pdpVerified !== undefined) {
+      updateData.pdpVerified = pdpVerified;
+    }
+
+    await this.db
+      .update(files)
+      .set(updateData)
+      .where(eq(files.id, id));
+  }
+
+  async updateFileVerification(id: number, pdpVerified: boolean, lastVerified: Date): Promise<void> {
+    await this.db
+      .update(files)
+      .set({ pdpVerified, lastVerified })
+      .where(eq(files.id, id));
+  }
+
+  async createDeal(insertDeal: InsertDeal): Promise<Deal> {
+    const [deal] = await this.db
+      .insert(deals)
+      .values(insertDeal)
+      .returning();
+    return deal;
+  }
+
+  async getDeal(dealId: string): Promise<Deal | undefined> {
+    const [deal] = await this.db
+      .select()
+      .from(deals)
+      .where(eq(deals.dealId, dealId))
+      .limit(1);
+    return deal;
+  }
+
+  async getDealByCid(cid: string): Promise<Deal | undefined> {
+    const [deal] = await this.db
+      .select()
+      .from(deals)
+      .where(eq(deals.cid, cid))
+      .limit(1);
+    return deal;
+  }
+
+  async updateDealStatus(dealId: string, status: string, pdpVerified?: boolean): Promise<void> {
+    const updateData: any = { status };
+    if (pdpVerified !== undefined) {
+      updateData.pdpVerified = pdpVerified;
+    }
+
+    await this.db
+      .update(deals)
+      .set(updateData)
+      .where(eq(deals.dealId, dealId));
+  }
+
+  async updateDealVerification(dealId: string, pdpVerified: boolean, lastVerified: Date): Promise<void> {
+    await this.db
+      .update(deals)
+      .set({ pdpVerified, lastVerified })
+      .where(eq(deals.dealId, dealId));
+  }
+
+  async getFileStats(walletAddress: string): Promise<{
+    totalFiles: number;
+    activeDeals: number;
+    totalStorage: number;
+    cdnRequests: number;
+  }> {
+    const userFiles = await this.db
+      .select()
+      .from(files)
+      .where(eq(files.walletAddress, walletAddress));
+    
+    const activeDeals = userFiles.filter(file => file.status === 'active').length;
+    const totalStorage = userFiles.reduce((sum, file) => sum + file.fileSize, 0);
+    
+    return {
+      totalFiles: userFiles.length,
+      activeDeals,
+      totalStorage,
+      cdnRequests: Math.floor(Math.random() * 5000) + 1000, // Mock CDN requests
+    };
+  }
 }
 
 export class MemStorage implements IStorage {
@@ -154,4 +302,7 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Use DatabaseStorage if DATABASE_URL is available, otherwise fallback to MemStorage
+export const storage = process.env.DATABASE_URL 
+  ? new DatabaseStorage() 
+  : new MemStorage();
