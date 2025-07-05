@@ -12,9 +12,16 @@ const upload = multer({
     fileSize: 50 * 1024 * 1024, // 50MB limit
   },
   fileFilter: (req, file, cb) => {
+    console.log('File filter called:', {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      fieldname: file.fieldname
+    });
+    
     const allowedTypes = [
       'text/html',
       'text/css',
+      'text/plain',
       'application/javascript',
       'application/json',
       'image/jpeg',
@@ -25,8 +32,10 @@ const upload = multer({
     ];
     
     if (allowedTypes.includes(file.mimetype) || file.originalname.endsWith('.glb')) {
+      console.log('File accepted');
       cb(null, true);
     } else {
+      console.log('File rejected:', file.mimetype);
       cb(null, false);
     }
   },

@@ -3,8 +3,21 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+// Only use body parsers for non-upload routes
+app.use((req, res, next) => {
+  if (req.path === '/api/upload') {
+    next();
+  } else {
+    express.json()(req, res, next);
+  }
+});
+app.use((req, res, next) => {
+  if (req.path === '/api/upload') {
+    next();
+  } else {
+    express.urlencoded({ extended: false })(req, res, next);
+  }
+});
 
 app.use((req, res, next) => {
   const start = Date.now();

@@ -9,7 +9,7 @@ import { Progress } from "../components/ui/progress";
 import { Badge } from "../components/ui/badge";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { 
-  Upload, 
+  Upload as UploadIcon, 
   File, 
   CheckCircle, 
   XCircle, 
@@ -205,7 +205,7 @@ export default function Upload() {
                       <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300 ${
                         isDragOver ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-700/50 text-slate-400'
                       }`}>
-                        <Upload className="w-8 h-8" />
+                        <UploadIcon className="w-8 h-8" />
                       </div>
                       
                       <div>

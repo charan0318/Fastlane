@@ -2,7 +2,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { useNavigate } from 'wouter';
+import { useLocation } from 'wouter';
 import { 
   Upload, 
   Shield, 
@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 
 export default function Home() {
-  const navigate = useNavigate();
+  const [location, setLocation] = useLocation();
 
   const features = [
     {
@@ -97,7 +97,7 @@ export default function Home() {
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-6 justify-center mb-16">
               <Button
-                onClick={() => navigate('/upload')}
+                onClick={() => setLocation('/upload')}
                 size="lg"
                 className="bg-gradient-to-r from-primary to-blue-500 hover:from-primary/90 hover:to-blue-500/90 text-white px-8 py-4 text-lg font-semibold rounded-xl shadow-xl shadow-primary/25 hover:shadow-primary/40 transition-all duration-300 group"
               >
@@ -105,7 +105,7 @@ export default function Home() {
                 <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
               </Button>
               <Button
-                onClick={() => navigate('/demo')}
+                onClick={() => setLocation('/demo')}
                 variant="outline"
                 size="lg"
                 className="border-2 border-slate-600 bg-slate-800/50 backdrop-blur text-white hover:bg-slate-700/50 hover:border-slate-500 px-8 py-4 text-lg font-semibold rounded-xl transition-all duration-300"
@@ -230,7 +230,7 @@ export default function Home() {
             Join thousands of developers already using Fastlane CDN for their Web3 applications.
           </p>
           <Button
-            onClick={() => navigate('/upload')}
+            onClick={() => setLocation('/upload')}
             size="lg"
             className="bg-gradient-to-r from-primary to-blue-500 hover:from-primary/90 hover:to-blue-500/90 text-white px-12 py-4 text-xl font-semibold rounded-xl shadow-xl shadow-primary/25 hover:shadow-primary/40 transition-all duration-300 group"
           >
