@@ -457,6 +457,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Debug endpoint to test delegation proof format
+  app.get('/api/debug/delegation', async (req, res) => {
+    try {
+      const proof = process.env.W3UP_PROOF;
+      if (!proof) {
+        return res.status(400).json({ 
+          error: 'No delegation proof configured',
+          instructions: 'Set W3UP_PROOF environment variable with base64-encoded CAR file'
+        });
+      }
+      
+      const proofBytes = Buffer.from(proof, 'base64');
+      
+      // Try to parse with different methods to diagnose the issue
+      let parseResults = {
+        bytesToDelegations: 'failed',
+        rawBytesInfo: {
+          length: proofBytes.length,
+          firstBytes: proofBytes.toString('hex').slice(0, 20),
+          lastBytes: proofBytes.toString('hex').slice(-20),
+        }
+      };
+      
+      try {
+        const delegations = await bytesToDelegations(proofBytes);
+        parseResults.bytesToDelegations = `success: ${delegations.length} delegations`;
+      } catch (error) {
+        parseResults.bytesToDelegations = `failed: ${error.message}`;
+      }
+      
+      res.json({
+        proofBytesLength: proofBytes.length,
+        proofPreview: proofBytes.toString('hex').slice(0, 100) + '...',
+        parseResults,
+        configuredVariables: {
+          hasPrivateKey: !!process.env.W3UP_PRIVATE_KEY,
+          hasProof: !!process.env.W3UP_PROOF,
+          hasSpace: !!process.env.W3UP_SPACE,
+        },
+        troubleshooting: {
+          message: 'To generate a valid delegation proof:',
+          steps: [
+            'w3 delegation create --space=<your-space-id> --output=proof.car',
+            'base64 proof.car > proof.b64',
+            'Set W3UP_PROOF environment variable to the base64 content',
+            'Verify with: w3 delegation inspect proof.car'
+          ]
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
