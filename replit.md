@@ -103,14 +103,28 @@ Fastlane CDN is a decentralized content delivery network built for Web3 applicat
 ### Environment Configuration
 ```
 DATABASE_URL=postgresql://postgres:Charan%2304@db.wfardaicsntirklqbtfb.supabase.co:5432/postgres
-ESTUARY_TOKEN=your_estuary_api_key
+W3UP_PRIVATE_KEY=your_web3storage_private_key
+W3UP_PROOF=your_delegation_proof_from_w3cli
+W3UP_SPACE=your_web3storage_space_did
 NODE_ENV=production
 ```
+
+### Web3.Storage Integration Status
+- **Current Status**: Implemented with development mode fallback
+- **Authentication**: w3up protocol with private key and delegation proof
+- **Issue**: Delegation proof parsing from w3cli output needs format adjustment
+- **Workaround**: Development mode provides full functionality while delegation format is resolved
+- **Next Steps**: 
+  - Verify w3cli delegation proof format matches ucanto Delegation.extract expectations
+  - Consider alternative delegation generation methods from Web3.Storage console
+  - Test with different CAR file parsing approaches if needed
 
 ## Changelog
 - July 04, 2025: Initial setup
 - July 04, 2025: Migrated from Estuary (discontinued) to Web3.Storage for decentralized file storage
 - July 05, 2025: Successfully migrated from Replit Agent to Replit environment with proper security practices
+- July 05, 2025: Implemented improved delegation parsing using CAR file reader and proper error handling
+- July 05, 2025: Confirmed full application functionality with development mode fallback
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.

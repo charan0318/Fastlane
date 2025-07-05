@@ -51,34 +51,51 @@ import { CarReader } from '@ipld/car';
 // Store the client instance (in production, use proper session management)
 let web3StorageClient: any = null;
 
-// Parse delegation proof using Web3.Storage's recommended method
+// Parse delegation proof using proper CAR file parsing
 async function parseDelegationProof(proofString: string) {
   try {
+    console.log('Parsing delegation proof with proper CAR parsing...');
+    
     // Decode base64 CAR data from w3cli output
-    const carBytes = new Uint8Array(Buffer.from(proofString, 'base64'));
+    const rawBytes = Buffer.from(proofString, 'base64');
     
-    // Use the more robust Delegation.extract method
-    const delegations = await Delegation.extract(carBytes);
+    // Parse CAR file and extract delegations
+    const carReader = await CarReader.fromBytes(rawBytes);
+    const roots = await carReader.getRoots();
     
-    // Extract expects an array of delegations, take the first one
-    if (Array.isArray(delegations) && delegations.length > 0) {
-      return delegations[0];
-    } else if (delegations && !Array.isArray(delegations)) {
-      return delegations;
-    } else {
-      throw new Error('No valid delegations found in proof');
+    console.log('CAR file roots:', roots.length);
+    
+    // Extract delegation from CAR file
+    const delegations = [];
+    for await (const { cid, bytes } of carReader.entries()) {
+      try {
+        const delegation = await Delegation.extract(bytes);
+        if (delegation) {
+          delegations.push(delegation);
+        }
+      } catch (extractError) {
+        console.log('Block not a delegation:', cid.toString());
+      }
     }
+    
+    console.log('Extracted delegations:', delegations.length);
+    
+    // Verify the returned structure
+    if (!delegations || delegations.length === 0) {
+      throw new Error('No delegations found in uploaded proof');
+    }
+    
+    // Add guard around delegations[0] access
+    if (typeof delegations[0] === 'undefined') {
+      throw new Error('Delegation parsing failed — invalid format');
+    }
+    
+    console.log('Successfully parsed delegation proof');
+    return delegations[0];
+    
   } catch (error) {
-    console.error('Failed to parse delegation proof:', error);
-    
-    // Try alternative parsing method
-    try {
-      const carBytes = Buffer.from(proofString, 'base64');
-      const delegation = await Delegation.extract(carBytes);
-      return delegation;
-    } catch (altError) {
-      throw new Error(`Delegation parsing failed: ${error.message}`);
-    }
+    console.error('Failed to parse delegation proof:', error.message);
+    throw new Error(`Delegation parsing failed: ${error.message}`);
   }
 }
 
