@@ -48,6 +48,8 @@ import { importDAG } from '@ucanto/core/delegation';
 import { CarReader } from '@ipld/car';
 import * as Signer from '@ucanto/principal/ed25519';
 import { parse } from '@ucanto/principal/ed25519';
+import { readFile } from 'fs/promises';
+import { join } from 'path';
 
 // Store the client instance (in production, use proper session management)
 let web3StorageClient: any = null;
@@ -55,9 +57,20 @@ let web3StorageClient: any = null;
 async function getWeb3StorageClient() {
   if (!web3StorageClient) {
     try {
+      // Load delegation proof from file
+      const delegationProofPath = join(process.cwd(), 'delegation_proof.bin');
+      const delegationProofBytes = await readFile(delegationProofPath);
+      
+      // Parse the delegation proof
+      const reader = await CarReader.fromBytes(delegationProofBytes);
+      const delegation = importDAG(reader);
+      
       // Create client with store
       const store = new StoreMemory();
       web3StorageClient = await Client.create({ store });
+      
+      // Add the delegation to the client
+      await web3StorageClient.addSpace(await delegation);
       
       // Check if we have any existing spaces
       const spaces = await web3StorageClient.spaces();
@@ -77,10 +90,12 @@ async function getWeb3StorageClient() {
       console.error('Failed to configure Web3.Storage client:', error);
       
       // Enhanced error handling for specific cases
-      if (error.message.includes("no proofs")) {
+      if (error.message && error.message.includes("no proofs")) {
         console.log("⚠️  Web3.Storage authentication issue - using development fallback");
-      } else if (error.message.includes("network") || error.message.includes("fetch")) {
+      } else if (error.message && (error.message.includes("network") || error.message.includes("fetch"))) {
         console.log("⚠️  Network connectivity issue - using development fallback");
+      } else if (error.code === 'ENOENT' && error.path && error.path.includes('delegation_proof.bin')) {
+        console.log("⚠️  Delegation proof file not found - using development fallback");
       } else {
         console.log("⚠️  Web3.Storage configuration failed - using development fallback");
       }
