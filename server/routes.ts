@@ -45,15 +45,16 @@ let web3StorageClient: any = null;
 
 async function getWeb3StorageClient() {
   if (!web3StorageClient) {
-    // For development, we'll use the space DID directly
     const spaceDid = 'did:key:z6MkfSoB1SrbsfbumPfJvrbkvQD4Z372oNSt1uyErnjkvd3N';
     
     try {
-      // Create a simple client for development
-      web3StorageClient = await Client.create();
+      // Create client with store
+      const store = new StoreMemory();
+      web3StorageClient = await Client.create({ store });
       
-      // For production, you would use proper delegation proofs
-      // For now, we'll use the space DID you provided
+      // Set the current space using the DID
+      await web3StorageClient.setCurrentSpace(spaceDid);
+      
       console.log(`Web3.Storage client configured for space: ${spaceDid}`);
       
     } catch (error) {
