@@ -1,0 +1,31 @@
+File filter called: {
+  originalname: 'aa22eb1d-0a6b-45f2-ab75-33d3a814edb9.png',
+  mimetype: 'image/png',
+  fieldname: 'file'
+}
+File accepted
+Upload request received: {
+  file: 'File present',
+  body: [Object: null prototype] {
+    walletAddress: '0x2f066f4742a2e41a397c78bbeab857eeb8dedf03'
+  },
+  contentType: 'multipart/form-data; boundary=----WebKitFormBoundaryxEHbVBC0Skw4qUBq'
+}
+Configuring Web3.Storage client with provided credentials...
+Failed to configure Web3.Storage client: Error: Unable to decode multibase string "gCYZIPt2EkVl4+JYgU9AushJtSLTiwGzTIHiq/7M1jqX3e0BAubK/OA1ZUqRFygehuhCze0kgusTTRt8ccziK1X8B/A=", base64pad decoder only supports inputs prefixed with M
+    at Decoder.decode (/home/runner/workspace/node_modules/multiformats/src/bases/base.ts:59:15)
+    at Codec.decode (/home/runner/workspace/node_modules/multiformats/src/bases/base.ts:125:25)
+    at Module.parse (file:///home/runner/workspace/node_modules/@ucanto/principal/src/ed25519/signer.js:125:33)
+    at getWeb3StorageClient (/home/runner/workspace/server/routes.ts:86:24)
+    at uploadToWeb3Storage (/home/runner/workspace/server/routes.ts:134:26)
+    at <anonymous> (/home/runner/workspace/server/routes.ts:288:39)
+    at Layer.handle [as handle_request] (/home/runner/workspace/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/runner/workspace/node_modules/express/lib/router/route.js:149:13)
+    at done (/home/runner/workspace/node_modules/multer/lib/make-middleware.js:59:7)
+    at indicateDone (/home/runner/workspace/node_modules/multer/lib/make-middleware.js:63:68)
+    at Multipart.<anonymous> (/home/runner/workspace/node_modules/multer/lib/make-middleware.js:182:7)
+    at Multipart.emit (node:events:518:28)
+    at emitCloseNT (node:internal/streams/destroy:147:10)
+    at process.processTicksAndRejections (node:internal/process/task_queues:81:21)
+Web3.Storage configuration failed - using development fallback
+Error details: Unable to decode multibase string "gCYZIPt2EkVl4+JYgU9AushJtSLTiwGzTIHiq/7M1jqX3e0BAubK/OA1ZUqRFygehuhCze0kgusTTRt8ccziK1X8B/A=", base64pad decoder only supports inputs prefixed with M

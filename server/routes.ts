@@ -74,16 +74,26 @@ async function getWeb3StorageClient() {
         throw new Error('Missing required Web3.Storage credentials (W3UP_PRIVATE_KEY, W3UP_PROOF, W3UP_SPACE)');
       }
       
-      console.log('Configuring Web3.Storage client with provided credentials...');
+      console.log('Configuring Web3.Storage client with w3up protocol...');
       
-      // Parse the private key - handle both DID and raw key formats
+      // For w3up protocol, we need to handle the key format correctly
       let agent;
+      
+      // Try different key formats for w3up compatibility
       if (privateKey.startsWith('did:key:')) {
-        // This is a DID, we need the actual private key
-        throw new Error('W3UP_PRIVATE_KEY should be the private key string, not the DID. Please provide the actual private key.');
-      } else {
-        // This should be the raw private key
+        throw new Error('W3UP_PRIVATE_KEY should be the raw private key, not the DID identifier');
+      } else if (privateKey.startsWith('M')) {
+        // This is a multibase encoded key with correct prefix
         agent = Signer.parse(privateKey);
+      } else {
+        // This might be a base64 key without multibase prefix, try to add it
+        const keyWithPrefix = 'M' + privateKey;
+        try {
+          agent = Signer.parse(keyWithPrefix);
+        } catch (prefixError) {
+          // If that fails, try the original format
+          agent = Signer.parse(privateKey);
+        }
       }
       
       // Create client with store and agent
@@ -94,27 +104,36 @@ async function getWeb3StorageClient() {
       });
       
       // Import the delegation proof
-      const delegation = await importDelegationProof(proof);
-      await web3StorageClient.addSpace(delegation);
-      
-      // Set the current space
-      await web3StorageClient.setCurrentSpace(spaceId);
-      
-      console.log(`Web3.Storage client configured successfully with space: ${spaceId}`);
+      try {
+        const delegation = await importDelegationProof(proof);
+        await web3StorageClient.addSpace(delegation);
+        
+        // Set the current space
+        await web3StorageClient.setCurrentSpace(spaceId);
+        
+        console.log(`✅ Web3.Storage client configured successfully with space: ${spaceId}`);
+      } catch (proofError) {
+        console.error('Failed to import delegation proof:', proofError);
+        throw new Error('Invalid delegation proof format. Please check W3UP_PROOF format.');
+      }
       
     } catch (error) {
       console.error('Failed to configure Web3.Storage client:', error);
       
       // Enhanced error handling for specific cases
-      if (error.message && (error.message.includes("no proofs") || error.message.includes("spaces"))) {
-        console.log("Web3.Storage space/authentication issue - check your credentials");
-        console.log("Visit https://console.web3.storage/ to verify your space and delegation");
-      } else if (error.message && (error.message.includes("network") || error.message.includes("fetch") || error.message.includes("SocketError"))) {
-        console.log("Network connectivity issue - check internet connection");
-        console.log("Continuing in development mode with mock data");
+      if (error.message && error.message.includes("multibase")) {
+        console.log("❌ W3UP_PRIVATE_KEY format issue - needs to be properly multibase encoded");
+        console.log("   The key should start with 'M' for base64pad encoding");
+        console.log("   Use w3cli to generate proper credentials: npm install -g @web3-storage/w3cli");
+      } else if (error.message && (error.message.includes("delegation") || error.message.includes("proof"))) {
+        console.log("❌ W3UP_PROOF format issue - invalid delegation proof");
+        console.log("   Generate a proper delegation using w3cli");
+      } else if (error.message && (error.message.includes("no proofs") || error.message.includes("spaces"))) {
+        console.log("❌ Web3.Storage space/authentication issue - check your credentials");
+        console.log("   Visit https://console.web3.storage/ to verify your space and delegation");
       } else {
-        console.log("Web3.Storage configuration failed - using development fallback");
-        console.log("Error details:", error.message);
+        console.log("❌ Web3.Storage configuration failed - using development fallback");
+        console.log("   Error details:", error.message);
       }
       
       // Set client to null to trigger fallback mode
