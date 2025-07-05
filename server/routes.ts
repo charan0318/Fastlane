@@ -44,13 +44,11 @@ let web3StorageClient: any = null;
 
 async function getWeb3StorageClient() {
   if (!web3StorageClient) {
-    // Check for delegation proof in environment
-    const proof = process.env.W3_STORAGE_PROOF;
-    const space = process.env.W3_STORAGE_SPACE;
-    const email = process.env.W3_STORAGE_EMAIL;
+    // Check for delegation proof in environment - using the correct variable name
+    const proof = process.env.W3_DELEGATION_PROOF;
     
-    if (!proof || !space || !email) {
-      throw new Error('Missing Web3.Storage credentials. Please set W3_STORAGE_PROOF, W3_STORAGE_SPACE, and W3_STORAGE_EMAIL');
+    if (!proof) {
+      throw new Error('Missing Web3.Storage delegation proof. Please set W3_DELEGATION_PROOF');
     }
     
     try {
@@ -59,21 +57,25 @@ async function getWeb3StorageClient() {
       const store = new StoreMemory();
       web3StorageClient = await Client.create({ principal, store });
 
-      // Parse the delegation proof
-      const proofArrayBuffer = Buffer.from(proof, 'base64');
-      const reader = await CarReader.fromBytes(new Uint8Array(proofArrayBuffer));
+      // Parse the delegation proof from base64
+      const proofBytes = Buffer.from(proof, 'base64');
+      const reader = await CarReader.fromBytes(new Uint8Array(proofBytes));
       const blocks = [];
       for await (const block of reader.blocks()) {
         blocks.push(block);
       }
-      const delegation = importDAG(blocks as any);
-      const addedSpace = await web3StorageClient.addSpace(delegation);
-      await web3StorageClient.setCurrentSpace(addedSpace.did());
       
-      console.log(`Web3.Storage client configured for space: ${addedSpace.did()}`);
+      // Import the delegation
+      const delegation = importDAG(blocks);
+      
+      // Add the space using the delegation
+      const space = await web3StorageClient.addSpace(delegation);
+      await web3StorageClient.setCurrentSpace(space.did());
+      
+      console.log(`Web3.Storage client configured successfully for space: ${space.did()}`);
     } catch (error) {
       console.error('Failed to configure Web3.Storage delegation:', error);
-      throw new Error('Invalid Web3.Storage delegation proof');
+      throw new Error(`Invalid Web3.Storage delegation proof: ${error.message}`);
     }
   }
   return web3StorageClient;
@@ -111,9 +113,9 @@ async function uploadToWeb3Storage(fileBuffer: Buffer, filename: string): Promis
   } catch (error: any) {
     console.error('Web3.Storage upload error:', error);
     
-    // Only fallback to mock for development if Web3.Storage credentials are missing
-    if (!process.env.W3_STORAGE_PROOF || !process.env.W3_STORAGE_SPACE || !process.env.W3_STORAGE_EMAIL) {
-      console.log('Falling back to mock upload for development - missing Web3.Storage credentials');
+    // Only fallback to mock for development if Web3.Storage delegation proof is missing
+    if (!process.env.W3_DELEGATION_PROOF) {
+      console.log('Falling back to mock upload for development - missing W3_DELEGATION_PROOF');
       const mockCid = `bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi`;
       return {
         cid: mockCid,
