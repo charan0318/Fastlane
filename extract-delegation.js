@@ -3,6 +3,14 @@ const fs = require('fs');
 
 // Read the w3cli configuration
 const configPath = '.config/w3access/w3cli.json';
+
+// Check if config file exists
+if (!fs.existsSync(configPath)) {
+  console.error('❌ Configuration file not found at:', configPath);
+  console.log('Please make sure you have run `w3 login` and created a space');
+  process.exit(1);
+}
+
 const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
 // Extract private key from config
