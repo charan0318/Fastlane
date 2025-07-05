@@ -70,14 +70,15 @@ async function getWeb3StorageClient() {
   if (!web3StorageClient) {
     try {
       const privateKey = process.env.W3UP_PRIVATE_KEY;
+      const proof = process.env.W3UP_PROOF;
       const spaceId = process.env.W3UP_SPACE;
       
-      if (!privateKey || !spaceId) {
-        console.log('⚠️  Missing W3UP_PRIVATE_KEY or W3UP_SPACE - using development mode');
+      if (!privateKey || !proof || !spaceId) {
+        console.log('Missing W3UP credentials - using development mode');
         return null;
       }
       
-      console.log('🔧 Configuring Web3.Storage client with w3up protocol...');
+      console.log('Configuring Web3.Storage client with w3up protocol...');
       
       // Handle the w3cli extracted key format
       let agent;
@@ -99,35 +100,43 @@ async function getWeb3StorageClient() {
         principal: agent
       });
       
-      // For now, skip delegation import and just try to use existing space
-      // This approach works if the agent already has access to the space
+      // Try to access the space directly without delegation import for now
       try {
-        await web3StorageClient.setCurrentSpace(spaceId);
-        console.log(`✅ Web3.Storage client configured with space: ${spaceId}`);
+        // Check if the agent already has access to any spaces
+        const spaces = await web3StorageClient.spaces();
+        console.log(`Agent has access to ${spaces.length} spaces`);
+        
+        if (spaces.length > 0) {
+          // Use the first available space
+          const space = spaces[0];
+          await web3StorageClient.setCurrentSpace(space.did());
+          console.log(`Using existing space: ${space.did()}`);
+        } else {
+          // For production use, you would need to properly import the delegation
+          // For now, inform about the delegation requirement
+          console.log('No spaces available for this agent');
+          console.log('To use Web3.Storage, the agent needs proper delegation');
+          console.log('Visit https://console.web3.storage/ to set up delegation');
+          console.log('Continuing in development mode...');
+          web3StorageClient = null;
+          return null;
+        }
         
         // Test upload capability
         const testFile = new File(['test'], 'test.txt', { type: 'text/plain' });
         const testCid = await web3StorageClient.uploadFile(testFile);
-        console.log(`🧪 Test upload successful: ${testCid}`);
+        console.log(`Web3.Storage test upload successful: ${testCid}`);
         
       } catch (spaceError) {
-        console.log('⚠️  Space access issue - continuing in development mode');
-        console.log(`   Space: ${spaceId}`);
-        console.log(`   Error: ${spaceError.message}`);
+        console.log('Space access failed - continuing in development mode');
+        console.log(`Space error: ${spaceError.message}`);
         web3StorageClient = null;
         return null;
       }
       
     } catch (error) {
       console.error('Failed to configure Web3.Storage client:', error);
-      
-      if (error.message && error.message.includes("multibase")) {
-        console.log("❌ W3UP_PRIVATE_KEY format issue - needs proper multibase encoding");
-      } else {
-        console.log("❌ Web3.Storage configuration failed - using development fallback");
-        console.log(`   Error: ${error.message}`);
-      }
-      
+      console.log(`Error: ${error.message}`);
       web3StorageClient = null;
       return null;
     }
