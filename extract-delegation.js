@@ -1,5 +1,5 @@
 
-const fs = require('fs');
+import fs from 'fs';
 
 // Read the w3cli configuration
 const configPath = '.config/w3access/w3cli.json';
