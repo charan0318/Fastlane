@@ -22,23 +22,25 @@ export default function Upload() {
 
   const uploadMutation = useMutation({
     mutationFn: async (files: File[]) => {
-      if (!address) throw new Error('Wallet not connected');
-      
       const results = [];
+
       for (const file of files) {
-        const result = await uploadFile(file, address);
+        const result = await uploadFile(file, address!);
         results.push(result);
       }
+
       return results;
     },
     onSuccess: (results) => {
-      setSelectedFiles([]);
       toast({
         title: 'Upload Successful!',
         description: `${results.length} file(s) uploaded and PDP deals created`,
       });
-      // Invalidate files query to refresh the dashboard
+      setSelectedFiles([]);
+
+      // Invalidate queries to refresh dashboard data
       queryClient.invalidateQueries({ queryKey: ['/api/files', address] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stats', address] });
     },
     onError: (error) => {
       toast({
@@ -63,7 +65,7 @@ export default function Upload() {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    
+
     const files = Array.from(e.dataTransfer.files);
     addFiles(files);
   };
@@ -89,7 +91,7 @@ export default function Upload() {
     const validFiles = files.filter(file => {
       const isValidType = allowedTypes.includes(file.type) || file.name.endsWith('.glb');
       const isValidSize = file.size <= 50 * 1024 * 1024; // 50MB limit
-      
+
       if (!isValidType) {
         toast({
           title: 'Invalid File Type',
@@ -97,7 +99,7 @@ export default function Upload() {
           variant: 'destructive',
         });
       }
-      
+
       if (!isValidSize) {
         toast({
           title: 'File Too Large',
@@ -105,7 +107,7 @@ export default function Upload() {
           variant: 'destructive',
         });
       }
-      
+
       return isValidType && isValidSize;
     });
 
