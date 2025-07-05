@@ -44,20 +44,43 @@ const upload = multer({
 // Web3.Storage configuration using w3up-client
 import * as Client from '@web3-storage/w3up-client';
 import { StoreMemory } from '@web3-storage/w3up-client/stores/memory';
-import { importDAG } from '@ucanto/core/delegation';
-import { CarReader } from '@ipld/car';
 import * as Signer from '@ucanto/principal/ed25519';
-import { parse } from '@ucanto/principal/ed25519';
 
 // Store the client instance (in production, use proper session management)
 let web3StorageClient: any = null;
 
+// Generate or load agent private key
+async function getOrCreateAgent() {
+  const privateKeyEnv = process.env.W3UP_PRIVATE_KEY;
+  
+  if (privateKeyEnv) {
+    try {
+      // Parse existing private key from environment
+      return Signer.parse(privateKeyEnv);
+    } catch (error) {
+      console.warn('Failed to parse W3UP_PRIVATE_KEY, generating new agent:', error.message);
+    }
+  }
+  
+  // Generate new agent if no valid key exists
+  const agent = await Signer.generate();
+  console.log('🔑 Generated new Web3.Storage agent. Add this to your .env file:');
+  console.log(`W3UP_PRIVATE_KEY=${agent.did()}`);
+  return agent;
+}
+
 async function getWeb3StorageClient() {
   if (!web3StorageClient) {
     try {
-      // Create client with store
+      // Get or create authenticated agent
+      const agent = await getOrCreateAgent();
+      
+      // Create client with store and agent
       const store = new StoreMemory();
-      web3StorageClient = await Client.create({ store });
+      web3StorageClient = await Client.create({ 
+        store,
+        principal: agent
+      });
       
       // Check if we have any existing spaces
       const spaces = await web3StorageClient.spaces();
@@ -67,20 +90,29 @@ async function getWeb3StorageClient() {
         await web3StorageClient.setCurrentSpace(spaces[0].did());
         console.log(`Web3.Storage client configured with existing space: ${spaces[0].did()}`);
       } else {
-        // Create a new space for development
-        const space = await web3StorageClient.createSpace('fastlane-dev');
-        await web3StorageClient.setCurrentSpace(space.did());
-        console.log(`Web3.Storage client configured with new space: ${space.did()}`);
+        console.log('⚠️  No spaces available. Please create a space using w3cli or the Web3.Storage console.');
+        console.log('   Visit: https://console.web3.storage/');
+        
+        // Try to create a space (may require additional setup)
+        try {
+          const space = await web3StorageClient.createSpace('fastlane-dev');
+          await web3StorageClient.setCurrentSpace(space.did());
+          console.log(`✅ Created and configured new space: ${space.did()}`);
+        } catch (spaceError) {
+          console.warn('Failed to create space automatically:', spaceError.message);
+          throw new Error('No spaces available and unable to create new space');
+        }
       }
       
     } catch (error) {
       console.error('Failed to configure Web3.Storage client:', error);
       
       // Enhanced error handling for specific cases
-      if (error.message && error.message.includes("no proofs")) {
-        console.log("⚠️  Web3.Storage authentication issue - using development fallback");
-      } else if (error.message && (error.message.includes("network") || error.message.includes("fetch"))) {
-        console.log("⚠️  Network connectivity issue - using development fallback");
+      if (error.message && (error.message.includes("no proofs") || error.message.includes("spaces"))) {
+        console.log("⚠️  Web3.Storage space/authentication issue - using development fallback");
+        console.log("   To fix: Visit https://console.web3.storage/ and create a space");
+      } else if (error.message && (error.message.includes("network") || error.message.includes("fetch") || error.message.includes("SocketError"))) {
+        console.log("⚠️  Network connectivity issue - check internet connection");
       } else {
         console.log("⚠️  Web3.Storage configuration failed - using development fallback");
       }
