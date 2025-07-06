@@ -1,0 +1,13 @@
+{
+  "name": "Fastlane",
+  "tagline": "Decentralized CDN for Web3 App Assets with Verifiable Storage",
+  "description": "Fastlane is a decentralized SaaS platform that enables dApp developers to host and deliver frontend assets (JS, images, 3D, metadata) using Filecoin PDP deals and FilCDN edge caching. Assets are stored with verifiable integrity and served globally at low latency via decentralized CDN nodes. Built with React, Node.js, and Filecoin tech.",
+  "team": [
+    {
+      "name": "Charan",
+      "email": "chve0402@gmail.com"
+    }
+  ],
+  "video_url": "",
+  "technologies": ["React", "Node.js", "Filecoin", "filCDN", "PDP", "IPFS", "TailwindCSS"]
+}
